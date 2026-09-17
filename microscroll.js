@@ -52,17 +52,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 const evaluator = new Function("x", `return \`${valExpr}\`;`);
 
-                return { property, evaluator };
+                return { property, evaluator, valExpr };
             }).filter(Boolean);
+
+            const tgt = contentMap.get(animName);
 
             return {
                 step: stepNumber,
                 gDiv,
-                target: contentMap.get(animName),
+                target: tgt,
                 topPct,
                 botPct,
                 styles,
-                lastX: null // Para evitar aplicar estilos si el estado no cambia
+                isInitialState: gDiv.classList.contains("anim-initial-state"),
+                lastX: null
             };
         });
 
@@ -75,6 +78,23 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    // =========================================================================
+    // 1. REGISTRO Y APLICACIÓN DE ESTADOS INICIALES BASE
+    // =========================================================================
+    scenes.forEach(scene => {
+        scene.timeline.forEach(step => {
+            if (step.target && step.isInitialState) {
+                step.styles.forEach(item => {
+                    // Aplicar estilo directo tomado del valExpr o evaluador en 0
+                    step.target.style[item.property] = item.evaluator(0);
+                });
+            }
+        });
+    });
+
+    // =========================================================================
+    // 2. BUCLE DE ACTUALIZACIÓN CON CONTROL DE RANGOS (BEFORE / INSIDE / AFTER)
+    // =========================================================================
     function update() {
         const vh = window.innerHeight;
         const sy = window.scrollY;
@@ -83,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const { timeline } = scene;
 
             timeline.forEach(step => {
-                if (!step.target) return;
+                if (!step.target || step.isInitialState) return;
 
                 const el = step.gDiv;
                 const rect = el.getBoundingClientRect();
@@ -98,16 +118,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 let rawX = (sy - scrollStart) / totalDistance;
 
-                // Clampear x entre 0 y 1 para asegurar inicio y fin perfectos
-                let x = Math.min(Math.max(rawX, 0), 1);
-                x = Math.round(x * 1000) / 1000;
+                // Solo si el scroll está en el rango activo o en los límites de transición
+                if (rawX >= 0 && rawX <= 1) {
+                    let x = Math.min(Math.max(rawX, 0), 1);
+                    x = Math.round(x * 1000) / 1000;
 
-                // Solo actualizar si x ha cambiado para optimizar rendimiento
-                if (step.lastX !== x) {
-                    step.lastX = x;
-                    step.styles.forEach(style => {
-                        step.target.style[style.property] = style.evaluator(x);
-                    });
+                    if (step.lastX !== x) {
+                        step.lastX = x;
+                        step.styles.forEach(style => {
+                            step.target.style[style.property] = style.evaluator(x);
+                        });
+                    }
+                } else if (rawX < 0) {
+                    // Si el scroll está ANTES de este paso, reseteamos lastX para estar listos para el reingreso
+                    step.lastX = null;
+                } else if (rawX > 1) {
+                    // Si el scroll ya PASÓ este paso, fijamos x = 1
+                    if (step.lastX !== 1) {
+                        step.lastX = 1;
+                        step.styles.forEach(style => {
+                            step.target.style[style.property] = style.evaluator(1);
+                        });
+                    }
                 }
             });
         });
@@ -115,8 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
         requestAnimationFrame(update);
     }
 
-    // Inicialización rápida para colocar todas las animaciones en x = 0
+    // Ejecutar actualización
     update();
-    requestAnimationFrame(update);
     window.addEventListener("resize", update);
 });
