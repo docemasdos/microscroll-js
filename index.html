@@ -1,231 +1,242 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
-  <head>
-    <meta charset="utf-8">
-    <title>DOCEMASDOS diseño web y desarrollo de aplicaciones</title>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MicroScroll.js — Immersive Experience Demo</title>
     <style>
-      @font-face {
-        font-family: Inter;
-        src: url(./Inter.ttf);
-      }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body {
-          width: 100%;
-          overflow-x: clip;
-          background: #fff;
-          color: #0d0d11;;
-          font-family: system-ui, sans-serif;
-      }
-
-      /*
-         CLAVE: En lugar de visibility: hidden o display: none,
-         usamos opacity: 0 para forzar al navegador a renderizar
-         las alturas y posiciones reales en el flujo de scroll.
-      */
-      .guide-group {
-          position: relative;
-          z-index: 1;
-          opacity: 0;
-          pointer-events: none;
-          width: 100%;
-          display: block;
-      }
-
-      .guide-group-12 {
-          position: relative;
-          z-index: 1;
-          opacity: 0;
-          pointer-events: none;
-          width: 100%;
-          display: block;
-      }
-
-      .guide-group section {
-          display: block;
-          width: 100%;
-      }
-
-      .guide-group section > div {
-          width: 100%;
-          display: block;
-          /* Se asegura de que no colapsen los márgenes ni alturas */
-          box-sizing: border-box;
-      }
-
-      /* CONTENIDOS: Flotan fijos en pantalla */
-      .content-group {
-          position: fixed;
-          left: 0;
-          top: 0;
-          width: 100vw;
-          height: 100vh;
-          z-index: 2;
-          pointer-events: auto;
-          will-change: top;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-      }
-
-      .content-group-12 {
-        position: fixed;
-        left: 0;
-        top: 0;
-        width: 100vw;
-        height: 100vh;
-        z-index: 2;
-        pointer-events: auto;
-        will-change: top;
-        display: flex;
-        align-items: center;
-        justify-content:space-between;
-      }
-
-      .content-group > section {
-          width: 100%;
-          height: 100%;
-          position: relative;
-      }
-
-      .card {
-          width: 100%;
-          height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-direction: column;
-          will-change: transform, opacity;
-          transition: all 0.5s ease;
-          h3 {
-            font-weight: 300;
-            font-size: 24px;
-          }
-      }
-      #content-1 .card {
-        opacity: 0;
-      }
-      #content-2 .card {
-        opacity: 0;
-        h3 {
-          letter-spacing: .5em;
+        :root {
+            --bg-color: #08080a;
+            --text-color: #ffffff;
+            --accent-cyan: #00f0ff;
+            --accent-magenta: #ff0055;
+            --accent-yellow: #ffe600;
         }
-      }
-      h1 {
-        font-size: 70px;
-        font-family: 'Inter', sans-serif;
-        font-weight: 900;
-        text-transform: uppercase;
-        margin: 0 auto;
-      }
-      </style>
-  </head>
-  <body>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: Impact, "Arial Black", sans-serif;
+            overflow-x: hidden;
+            text-transform: uppercase;
+        }
+
+        /* CAPAS DE CONTENIDO (VISUALES FIJAS) */
+        .content-group {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .content-group section {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* ESTILOS DE LOS ELEMENTOS ANIMADOS */
+        .hero-title {
+            position: absolute;
+            font-size: clamp(4rem, 15vw, 18rem);
+            line-height: 0.85;
+            text-align: center;
+            letter-spacing: -2px;
+            text-shadow: 0 0 30px rgba(0, 240, 255, 0.6);
+            color: var(--text-color);
+            will-change: transform, opacity;
+            white-space: nowrap;
+        }
+
+        .giant-zoom {
+            position: absolute;
+            font-size: clamp(6rem, 22vw, 28rem);
+            color: var(--accent-magenta);
+            text-shadow: 0 0 50px rgba(255, 0, 85, 0.8);
+            will-change: transform, opacity, filter;
+            white-space: nowrap;
+        }
+
+        .card-3d {
+            position: absolute;
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+            border: 2px solid var(--accent-cyan);
+            box-shadow: 0 0 40px rgba(0, 240, 255, 0.2);
+            padding: 3rem 5rem;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            text-align: center;
+            will-change: transform, opacity;
+        }
+
+        .card-3d h2 {
+            font-size: clamp(2.5rem, 8vw, 8rem);
+            color: var(--accent-yellow);
+            text-shadow: 0 0 20px rgba(255, 230, 0, 0.5);
+            margin-bottom: 0.5rem;
+        }
+
+        .card-3d p {
+            font-family: monospace;
+            font-size: 1.2rem;
+            color: #888;
+            letter-spacing: 2px;
+        }
+
+        /* CAPAS DE GUÍA (PISTA DE SCROLL) */
+        .guide-group {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* INDICADOR INICIAL DE SCROLL */
+        .scroll-indicator {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: monospace;
+            font-size: 0.9rem;
+            letter-spacing: 3px;
+            color: var(--accent-cyan);
+            z-index: 100;
+            pointer-events: none;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; transform: translate(-50%, 0); }
+            50% { opacity: 1; transform: translate(-50%, -10px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scroll-indicator">▼ SCROLL TO EXPLORE ▼</div>
+
     <!-- ==================== ESCENA 1 ==================== -->
     <div id="guide-1" class="guide-group">
         <section>
-            <div id="initial-state"
-            data-step="1"
-            data-anim-height="100vh"
-            data-anim-name="hero-anim"
-            class="anim-initial-state"
-            >
+            <!-- Estado Inicial Base de la Escena 1 -->
+            <div class="anim-initial-state" data-anim-name="hero-title">
                 <span>opacity=`0`</span>
+                <span>transform=`scale(0.2) translate3d(0, 0, 0)`</span>
             </div>
-            <div data-step="1"
-            data-anim-height="100vh"
-            data-anim-name="hero-anim">
-                <span>opacity=`${x}`</span>
+
+            <!-- Paso 1: Zoom in masivo a "MICROSCROLL" -->
+            <div data-anim-height="200vh" data-anim-name="hero-title" data-anim-top="0">
+                <span>opacity=`${Math.min(x * 3, 1)}`</span>
+                <span>transform=`scale(${0.2 + x * 2.8}) rotate(${-10 + x * 10}deg)`</span>
             </div>
-            <div data-step="1"
-            data-anim-height="100vh"
-            data-anim-name="hero-anim">
-                <span>letter-spacing=`${10*x}px`</span>
-            </div>
-            <div data-step="1"
-            data-anim-height="100vh"
-            data-anim-name="hero-anim">
-                <span>opacity=`${1-x}`</span>
+
+            <!-- Paso 2: Salida con Super Zoom de cruce de pantalla -->
+            <div data-anim-height="150vh" data-anim-name="hero-title" data-anim-top="0">
+                <span>opacity=`${1 - x}`</span>
+                <span>transform=`scale(${3 + x * 12})`</span>
             </div>
         </section>
     </div>
 
     <div id="content-1" class="content-group">
         <section>
-            <div data-anim-name="hero-anim" class="card">
-                <h3>Hola</h3>
-            </div>
+            <h1 data-anim-name="hero-title" class="hero-title">
+                MICRO<br><span style="color: var(--accent-cyan);">SCROLL</span>
+            </h1>
         </section>
     </div>
+
     <!-- ==================== ESCENA 2 ==================== -->
     <div id="guide-2" class="guide-group">
         <section>
-            <div id="initial-state"
-            data-step="1"
-            data-anim-height="100vh"
-            data-anim-name="feature-anim"
-            class="anim-initial-state"
-            >
-                <span>transform=`scale(1)`</span>
+            <!-- Estado Inicial Base de la Escena 2 -->
+            <div class="anim-initial-state" data-anim-name="zoom-text">
                 <span>opacity=`0`</span>
+                <span>transform=`scale(15) rotate(45deg)`</span>
+                <span>filter=`blur(20px)`</span>
             </div>
-            <!-- Paso 1 de la Escena 2 (entra al terminar la Escena 1) -->
-            <div data-step="1"
-            data-anim-height="100vh"
-            data-anim-name="feature-anim"
-            >
+
+            <!-- Paso 1: Caída de Zoom Gigante (15x a 1x) con Blur -->
+            <div data-anim-height="200vh" data-anim-name="zoom-text" data-anim-top="0">
                 <span>opacity=`${x}`</span>
-                <span>transform=`scale(${1+x*0.5})`</span>
+                <span>transform=`scale(${15 - x * 14}) rotate(${45 - x * 45}deg)`</span>
+                <span>filter=`blur(${(1 - x) * 20}px)`</span>
             </div>
-            <div data-step="1"
-            data-anim-height="100vh"
-            data-anim-name="feature-anim">
-                <span>opacity=`${1-x}`</span>
+
+            <!-- Paso 2: Giro 3D y contracción -->
+            <div data-anim-height="150vh" data-anim-name="zoom-text" data-anim-top="0">
+                <span>opacity=`${1 - x * 0.8}`</span>
+                <span>transform=`scale(${1 - x * 0.5}) rotateY(${x * 180}deg)`</span>
+            </div>
+
+            <!-- Paso 3: Desvanecimiento final -->
+            <div data-anim-height="100vh" data-anim-name="zoom-text" data-anim-top="0">
+                <span>opacity=`${0.2 * (1 - x)}`</span>
+                <span>transform=`scale(${0.5 - x * 0.5})`</span>
             </div>
         </section>
     </div>
+
     <div id="content-2" class="content-group">
         <section>
-            <div data-anim-name="feature-anim" class="card">
-                <h3>Bienvenido a...</h3>
+            <div data-anim-name="zoom-text" class="giant-zoom">
+                POWER
             </div>
         </section>
     </div>
-    <!-- ==================== ESCENA 2 ==================== -->
+
+    <!-- ==================== ESCENA 3 ==================== -->
     <div id="guide-3" class="guide-group">
         <section>
-            <div id="initial-state"
-            data-step="1"
-            data-anim-height="100vh"
-            data-anim-name="feature-1-anim"
-            class="anim-initial-state"
-            >
+            <!-- Estado Inicial Base de la Escena 3 -->
+            <div class="anim-initial-state" data-anim-name="card-info">
                 <span>opacity=`0`</span>
+                <span>transform=`perspective(1000px) rotateX(-90deg) translate3d(0, 100px, 0)`</span>
             </div>
-            <!-- Paso 1 de la Escena 2 (entra al terminar la Escena 1) -->
-            <div data-step="1"
-            data-anim-height="100vh"
-            data-anim-name="feature-1-anim"
-            >
-                <span>opacity=`${Math.round(x, -1)}`</span>
+
+            <!-- Paso 1: Flip 3D desde abajo -->
+            <div data-anim-height="200vh" data-anim-name="card-info" data-anim-top="0">
+                <span>opacity=`${x}`</span>
+                <span>transform=`perspective(1000px) rotateX(${-90 + x * 90}deg) translate3d(0, ${(1 - x) * 100}px, 0)`</span>
             </div>
-            <div data-step="1"
-            data-anim-height="100vh"
-            data-anim-name="feature-1-anim">
-                <span>opacity=`${1-x}`</span>
+
+            <!-- Paso 2: Mantener y rotar suavemente -->
+            <div data-anim-height="150vh" data-anim-name="card-info" data-anim-top="0">
+                <span>opacity=`1`</span>
+                <span>transform=`perspective(1000px) rotateY(${x * 20}deg) scale(${1 + x * 0.1})`</span>
             </div>
-            <div data-step="1"
-            data-anim-height="150vh"
-            data-anim-name="feature-1-anim">
+
+            <!-- Paso 3: Salida hiperbólica -->
+            <div data-anim-height="150vh" data-anim-name="card-info" data-anim-top="0">
+                <span>opacity=`${1 - x}`</span>
+                <span>transform=`perspective(1000px) scale(${1.1 + x * 3}) translate3d(0, ${-x * 200}px, 0)`</span>
             </div>
         </section>
     </div>
+
     <div id="content-3" class="content-group">
         <section>
-            <div data-anim-name="feature-1-anim" class="card">
-                <h1>DOCE+2</h1>
+            <div data-anim-name="card-info" class="card-3d">
+                <h2>60 FPS</h2>
+                <p>ZERO DEPENDENCIES. HIGH PERFORMANCE.</p>
             </div>
         </section>
     </div>
-    <script src="microscroll.js" charset="utf-8"></script>
-  </body>
+
+	<script src="./assets/js/microscroll.js"></script>
+</body>
 </html>
