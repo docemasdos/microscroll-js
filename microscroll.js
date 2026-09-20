@@ -38,7 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const spanElements = gDiv.querySelectorAll("span");
 
             const styles = Array.from(spanElements).map(span => {
-                span.style.display = "none"; // Ocultar span instructivo de la guía
+                span.style.display = "none"; // Ocultar span de la guía
 
                 const rawText = span.textContent.trim();
                 if (!rawText) return null;
@@ -47,18 +47,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (eqIndex === -1) return null;
 
                 const property = rawText.slice(0, eqIndex).trim();
-                let valExpr = rawText.slice(eqIndex + 1).trim().replace(/^;|,|;$/g, "");
 
-                // Evaluación ultra-segura de expresiones
+                // Limpiar comas o punto y comas solo en los extremos
+                let valExpr = rawText.slice(eqIndex + 1).trim().replace(/^[;,]+|[;,]+$/g, "");
+                valExpr = valExpr.replace(/^[`'"]|[`'"]$/g, "");
+
                 let evaluator;
                 try {
-                    // Si ya viene con backticks `...`, los usamos directamente para la plantilla
-                    if (valExpr.startsWith("`") && valExpr.endsWith("`")) {
-                        evaluator = new Function("x", "return " + valExpr + ";");
-                    } else {
-                        // Si es un valor simple o JS directo
-                        evaluator = new Function("x", "return `" + valExpr + "`;");
-                    }
+                    evaluator = new Function("x", "return `" + valExpr + "`;");
                 } catch (e) {
                     console.error(`[MicroScroll] Error al parsear expresión en "${rawText}":`, e);
                     return null;
@@ -68,10 +64,6 @@ document.addEventListener("DOMContentLoaded", () => {
             }).filter(Boolean);
 
             const tgt = contentMap.get(animName);
-
-            if (!tgt) {
-                console.warn(`[MicroScroll] Sin target para data-anim-name="${animName}"`);
-            }
 
             return {
                 gDiv,
@@ -90,28 +82,13 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // 1. Estados iniciales
-    scenes.forEach(scene => {
-        scene.timeline.forEach(step => {
-            if (step.target && step.isInitialState) {
-                step.styles.forEach(item => {
-                    try {
-                        step.target.style[item.property] = item.evaluator(0);
-                    } catch (e) {
-                        console.error(`[MicroScroll] Error en estado inicial (${item.property}):`, e);
-                    }
-                });
-            }
-        });
-    });
-
-    // 2. Cálculo físico de scroll
+    // BUCLE PRINCIPAL DE ANIMACIÓN
     function update() {
         const sy = window.scrollY;
 
         scenes.forEach(scene => {
             scene.timeline.forEach(step => {
-                if (!step.target || step.isInitialState) return;
+                if (!step.target) return;
 
                 const el = step.gDiv;
                 const rect = el.getBoundingClientRect();
@@ -121,11 +98,31 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (x12 <= 0) return;
 
                 const topOffset = (vh * step.topPct) / 100;
-
                 let rawX = ((sy + topOffset) - xi1) / x12;
-                let x = Math.min(Math.max(rawX, 0), 1);
-                x = Math.round(x * 100) / 100;
 
+                // Si es un estado inicial explícito (.anim-initial-state)
+                if (step.isInitialState) {
+                    if (rawX <= 0) {
+                        step.styles.forEach(style => {
+                            try {
+                                step.target.style[style.property] = style.evaluator(0);
+                            } catch (e) {}
+                        });
+                    }
+                    return;
+                }
+
+                // Cálculo de X para pasos normales
+                let x;
+                if (rawX < 0) {
+                    x = 0;
+                } else if (rawX > 1) {
+                    x = 1;
+                } else {
+                    x = Math.round(rawX * 100) / 100;
+                }
+
+                // Aplicación de estilos solo si hay cambio de valor de x
                 if (step.lastX !== x) {
                     step.lastX = x;
                     step.styles.forEach(style => {
@@ -138,26 +135,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             });
         });
+
+        // Bucle continuo para sincronización perfecta con la GPU
+        requestAnimationFrame(update);
     }
 
-    // 3. Ticking Optimizado
-    let ticking = false;
-
-    function requestTick() {
-        if (!ticking) {
-            requestAnimationFrame(() => {
-                update();
-                ticking = false;
-            });
-            ticking = true;
-        }
-    }
-
-    update();
-
-    window.addEventListener("scroll", requestTick, { passive: true });
+    // Evento de resize para recalcular dimensiones de ventana
     window.addEventListener("resize", () => {
         vh = window.innerHeight;
-        requestTick();
     });
+
+    // Arrancar el bucle continuo en el primer frame
+    requestAnimationFrame(update);
 });
