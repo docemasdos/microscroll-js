@@ -13,30 +13,33 @@ document.addEventListener("DOMContentLoaded", () => {
         const idSuffix = guideContainer.id.replace("guide-", "");
         const contentContainer = document.getElementById(`content-${idSuffix}`);
 
-        if (!contentContainer) return;
+        if (!contentContainer) {
+            console.warn(`[MicroScroll] No se encontró content-${idSuffix}`);
+            return;
+        }
 
-        const guideDivs = guideContainer.querySelectorAll("section > div");
-        const contentDivs = contentContainer.querySelectorAll("section > div");
-
+        const contentDivs = contentContainer.querySelectorAll("[data-anim-name]");
         const contentMap = new Map();
         contentDivs.forEach(div => {
             const name = div.dataset.animName;
             if (name) contentMap.set(name, div);
         });
 
+        const guideDivs = guideContainer.querySelectorAll("[data-anim-name]");
+
         const parsedTimeline = Array.from(guideDivs).map(gDiv => {
-            const height = gDiv.getAttribute("data-anim-height") || "100vh";
+            const height = gDiv.getAttribute("data-anim-height") || gDiv.style.height || "100vh";
             gDiv.style.height = height;
 
             const animName = gDiv.getAttribute("data-anim-name");
-
-            // Leemos data-anim-top o data-top con fallback seguro en 0
             const rawTop = gDiv.getAttribute("data-anim-top") || gDiv.getAttribute("data-top") || "0";
             const topPct = parseFloat(rawTop);
 
             const spanElements = gDiv.querySelectorAll("span");
 
             const styles = Array.from(spanElements).map(span => {
+                span.style.display = "none"; // Ocultar span instructivo de la guía
+
                 const rawText = span.textContent.trim();
                 if (!rawText) return null;
 
@@ -46,16 +49,29 @@ document.addEventListener("DOMContentLoaded", () => {
                 const property = rawText.slice(0, eqIndex).trim();
                 let valExpr = rawText.slice(eqIndex + 1).trim().replace(/^;|,|;$/g, "");
 
-                if (valExpr.startsWith("`") && valExpr.endsWith("`")) {
-                    valExpr = valExpr.slice(1, -1);
+                // Evaluación ultra-segura de expresiones
+                let evaluator;
+                try {
+                    // Si ya viene con backticks `...`, los usamos directamente para la plantilla
+                    if (valExpr.startsWith("`") && valExpr.endsWith("`")) {
+                        evaluator = new Function("x", "return " + valExpr + ";");
+                    } else {
+                        // Si es un valor simple o JS directo
+                        evaluator = new Function("x", "return `" + valExpr + "`;");
+                    }
+                } catch (e) {
+                    console.error(`[MicroScroll] Error al parsear expresión en "${rawText}":`, e);
+                    return null;
                 }
-
-                const evaluator = new Function("x", `return \`${valExpr}\`;`);
 
                 return { property, evaluator, valExpr };
             }).filter(Boolean);
 
             const tgt = contentMap.get(animName);
+
+            if (!tgt) {
+                console.warn(`[MicroScroll] Sin target para data-anim-name="${animName}"`);
+            }
 
             return {
                 gDiv,
@@ -74,18 +90,22 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // 1. APLICACIÓN DE ESTADOS INICIALES (.anim-initial-state)
+    // 1. Estados iniciales
     scenes.forEach(scene => {
         scene.timeline.forEach(step => {
             if (step.target && step.isInitialState) {
                 step.styles.forEach(item => {
-                    step.target.style[item.property] = item.evaluator(0);
+                    try {
+                        step.target.style[item.property] = item.evaluator(0);
+                    } catch (e) {
+                        console.error(`[MicroScroll] Error en estado inicial (${item.property}):`, e);
+                    }
                 });
             }
         });
     });
 
-    // 2. BUCLE DE CÁLCULO FÍSICO
+    // 2. Cálculo físico de scroll
     function update() {
         const sy = window.scrollY;
 
@@ -94,18 +114,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (!step.target || step.isInitialState) return;
 
                 const el = step.gDiv;
-
-                // Obtenemos la posición Y absoluta respecto a todo el documento
                 const rect = el.getBoundingClientRect();
                 const xi1 = rect.top + sy;
                 const x12 = el.offsetHeight;
 
                 if (x12 <= 0) return;
 
-                // Offset dinámico desde el top del viewport según el atributo en vh
                 const topOffset = (vh * step.topPct) / 100;
 
-                // El avance real se mide comparando la línea del viewport (sy + topOffset) contra xi1
                 let rawX = ((sy + topOffset) - xi1) / x12;
                 let x = Math.min(Math.max(rawX, 0), 1);
                 x = Math.round(x * 100) / 100;
@@ -113,14 +129,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (step.lastX !== x) {
                     step.lastX = x;
                     step.styles.forEach(style => {
-                        step.target.style[style.property] = style.evaluator(x);
+                        try {
+                            step.target.style[style.property] = style.evaluator(x);
+                        } catch (e) {
+                            console.error(`[MicroScroll] Error aplicando ${style.property}:`, e);
+                        }
                     });
                 }
             });
         });
     }
 
-    // 3. OPTIMIZACIÓN HÍBRIDA CON rAF Y PASSIVE SCROLL
+    // 3. Ticking Optimizado
     let ticking = false;
 
     function requestTick() {
@@ -133,7 +153,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Render inicial
     update();
 
     window.addEventListener("scroll", requestTick, { passive: true });
