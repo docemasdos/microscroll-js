@@ -7,6 +7,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const guideContainers = document.querySelectorAll("[id^='guide-']");
     const scenes = [];
 
+    let vh = window.innerHeight;
+
     guideContainers.forEach(guideContainer => {
         const idSuffix = guideContainer.id.replace("guide-", "");
         const contentContainer = document.getElementById(`content-${idSuffix}`);
@@ -26,13 +28,11 @@ document.addEventListener("DOMContentLoaded", () => {
             const height = gDiv.getAttribute("data-anim-height") || "100vh";
             gDiv.style.height = height;
 
-            const stepNumber = parseInt(gDiv.getAttribute("data-step") || "0", 10);
             const animName = gDiv.getAttribute("data-anim-name");
 
-            const topAttr = gDiv.getAttribute("data-anim-top") || "0%";
-            const botAttr = gDiv.getAttribute("data-anim-bot") || "100%";
-            const topPct = parseFloat(topAttr) / 100;
-            const botPct = parseFloat(botAttr) / 100;
+            // Leemos data-anim-top o data-top con fallback seguro en 0
+            const rawTop = gDiv.getAttribute("data-anim-top") || gDiv.getAttribute("data-top") || "0";
+            const topPct = parseFloat(rawTop);
 
             const spanElements = gDiv.querySelectorAll("span");
 
@@ -58,96 +58,87 @@ document.addEventListener("DOMContentLoaded", () => {
             const tgt = contentMap.get(animName);
 
             return {
-                step: stepNumber,
                 gDiv,
                 target: tgt,
-                topPct,
-                botPct,
                 styles,
+                topPct,
                 isInitialState: gDiv.classList.contains("anim-initial-state"),
                 lastX: null
             };
         });
 
-        const timeline = parsedTimeline.sort((a, b) => a.step - b.step);
-
         scenes.push({
             guideContainer,
             contentContainer,
-            timeline
+            timeline: parsedTimeline
         });
     });
 
-    // =========================================================================
-    // 1. REGISTRO Y APLICACIÓN DE ESTADOS INICIALES BASE
-    // =========================================================================
+    // 1. APLICACIÓN DE ESTADOS INICIALES (.anim-initial-state)
     scenes.forEach(scene => {
         scene.timeline.forEach(step => {
             if (step.target && step.isInitialState) {
                 step.styles.forEach(item => {
-                    // Aplicar estilo directo tomado del valExpr o evaluador en 0
                     step.target.style[item.property] = item.evaluator(0);
                 });
             }
         });
     });
 
-    // =========================================================================
-    // 2. BUCLE DE ACTUALIZACIÓN CON CONTROL DE RANGOS (BEFORE / INSIDE / AFTER)
-    // =========================================================================
+    // 2. BUCLE DE CÁLCULO FÍSICO
     function update() {
-        const vh = window.innerHeight;
         const sy = window.scrollY;
 
         scenes.forEach(scene => {
-            const { timeline } = scene;
-
-            timeline.forEach(step => {
+            scene.timeline.forEach(step => {
                 if (!step.target || step.isInitialState) return;
 
                 const el = step.gDiv;
+
+                // Obtenemos la posición Y absoluta respecto a todo el documento
                 const rect = el.getBoundingClientRect();
-                const et = rect.top + sy;
-                const eh = el.offsetHeight;
+                const xi1 = rect.top + sy;
+                const x12 = el.offsetHeight;
 
-                const scrollStart = et - (step.botPct * vh);
-                const scrollEnd = (et + eh) - (step.topPct * vh);
-                const totalDistance = scrollEnd - scrollStart;
+                if (x12 <= 0) return;
 
-                if (totalDistance <= 0) return;
+                // Offset dinámico desde el top del viewport según el atributo en vh
+                const topOffset = (vh * step.topPct) / 100;
 
-                let rawX = (sy - scrollStart) / totalDistance;
+                // El avance real se mide comparando la línea del viewport (sy + topOffset) contra xi1
+                let rawX = ((sy + topOffset) - xi1) / x12;
+                let x = Math.min(Math.max(rawX, 0), 1);
+                x = Math.round(x * 100) / 100;
 
-                // Solo si el scroll está en el rango activo o en los límites de transición
-                if (rawX >= 0 && rawX <= 1) {
-                    let x = Math.min(Math.max(rawX, 0), 1);
-                    x = Math.round(x * 1000) / 1000;
-
-                    if (step.lastX !== x) {
-                        step.lastX = x;
-                        step.styles.forEach(style => {
-                            step.target.style[style.property] = style.evaluator(x);
-                        });
-                    }
-                } else if (rawX < 0) {
-                    // Si el scroll está ANTES de este paso, reseteamos lastX para estar listos para el reingreso
-                    step.lastX = null;
-                } else if (rawX > 1) {
-                    // Si el scroll ya PASÓ este paso, fijamos x = 1
-                    if (step.lastX !== 1) {
-                        step.lastX = 1;
-                        step.styles.forEach(style => {
-                            step.target.style[style.property] = style.evaluator(1);
-                        });
-                    }
+                if (step.lastX !== x) {
+                    step.lastX = x;
+                    step.styles.forEach(style => {
+                        step.target.style[style.property] = style.evaluator(x);
+                    });
                 }
             });
         });
-
-        requestAnimationFrame(update);
     }
 
-    // Ejecutar actualización
+    // 3. OPTIMIZACIÓN HÍBRIDA CON rAF Y PASSIVE SCROLL
+    let ticking = false;
+
+    function requestTick() {
+        if (!ticking) {
+            requestAnimationFrame(() => {
+                update();
+                ticking = false;
+            });
+            ticking = true;
+        }
+    }
+
+    // Render inicial
     update();
-    window.addEventListener("resize", update);
+
+    window.addEventListener("scroll", requestTick, { passive: true });
+    window.addEventListener("resize", () => {
+        vh = window.innerHeight;
+        requestTick();
+    });
 });
