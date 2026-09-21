@@ -3,6 +3,15 @@
  * Creado por Gabriel Luis Esposito Papakiriacopulos & Gemini (Google AI)
  * Licencia: MIT
  */
+
+ // =========================================================================
+ // PARCHE TEMPORAL: Previene el clipping gráfico de fuentes/GPU en la 1era carga
+ // =========================================================================
+ if (!sessionStorage.getItem("microscroll_first_load_patched")) {
+     sessionStorage.setItem("microscroll_first_load_patched", "true");
+     window.location.reload();
+ }
+
 document.addEventListener("DOMContentLoaded", () => {
     const guideContainers = document.querySelectorAll("[id^='guide-']");
     const scenes = [];
